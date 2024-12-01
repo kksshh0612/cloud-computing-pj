@@ -7,7 +7,9 @@ package aws;
 * using AWS Java SDK Library
 * 
 */
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Scanner;
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
@@ -37,7 +39,9 @@ import com.amazonaws.services.ec2.model.Filter;
 
 public class awsTest {
 
-	static AmazonEC2 ec2;
+	private static AmazonEC2 ec2;
+
+	private static final String REGION = "ap-northeast-2";
 
 	private static void init() throws Exception {
 
@@ -54,7 +58,7 @@ public class awsTest {
 		}
 		ec2 = AmazonEC2ClientBuilder.standard()
 			.withCredentials(credentialsProvider)
-			.withRegion("ap-northeast-2")	/* check the region at AWS console */
+			.withRegion(REGION)	/* check the region at AWS console */
 			.build();
 	}
 
@@ -85,7 +89,7 @@ public class awsTest {
 			if(menu.hasNextInt()){
 				number = menu.nextInt();
 				}else {
-					System.out.println("concentration!");
+					System.out.println("concentration! Enter an integer ");
 					break;
 				}
 			
@@ -146,6 +150,10 @@ public class awsTest {
 				listImages();
 				break;
 
+			case 9:
+				condorStatus();
+				break;
+
 			case 99: 
 				System.out.println("bye!");
 				menu.close();
@@ -164,7 +172,7 @@ public class awsTest {
 		boolean done = false;
 		
 		DescribeInstancesRequest request = new DescribeInstancesRequest();
-		
+
 		while(!done) {
 			DescribeInstancesResult response = ec2.describeInstances(request);
 
@@ -332,7 +340,7 @@ public class awsTest {
 		DescribeImagesRequest request = new DescribeImagesRequest();
 		ProfileCredentialsProvider credentialsProvider = new ProfileCredentialsProvider();
 		
-		request.getFilters().add(new Filter().withName("name").withValues("htcondor-slave-image"));
+		request.getFilters().add(new Filter().withName("name").withValues("aws-htcondor-worker"));
 		request.setRequestCredentialsProvider(credentialsProvider);
 		
 		DescribeImagesResult results = ec2.describeImages(request);
@@ -341,7 +349,10 @@ public class awsTest {
 			System.out.printf("[ImageID] %s, [Name] %s, [Owner] %s\n", 
 					images.getImageId(), images.getName(), images.getOwnerId());
 		}
-		
+	}
+
+	public static void condorStatus(){
+
 	}
 }
 	
