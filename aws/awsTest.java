@@ -7,6 +7,12 @@ package aws;
 * using AWS Java SDK Library
 * 
 */
+import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagement;
+import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagementClientBuilder;
+import com.amazonaws.services.simplesystemsmanagement.model.GetCommandInvocationRequest;
+import com.amazonaws.services.simplesystemsmanagement.model.GetCommandInvocationResult;
+import com.amazonaws.services.simplesystemsmanagement.model.SendCommandRequest;
+import com.amazonaws.services.simplesystemsmanagement.model.SendCommandResult;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -81,6 +87,7 @@ public class awsTest {
 			System.out.println("  3. start instance               4. available regions      ");
 			System.out.println("  5. stop instance                6. create instance        ");
 			System.out.println("  7. reboot instance              8. list images            ");
+			System.out.println("  9. check condor status                                    ");
 			System.out.println("                                 99. quit                   ");
 			System.out.println("------------------------------------------------------------");
 			
@@ -351,8 +358,94 @@ public class awsTest {
 		}
 	}
 
-	public static void condorStatus(){
+	public static void condorStatus() {
+		System.out.println("Checking condor status....");
+		boolean done = false;
 
+		DescribeInstancesRequest request = new DescribeInstancesRequest();
+
+		Instance targetInstance = null;
+		while (!done) {
+			DescribeInstancesResult result = ec2.describeInstances(request);
+
+			for (Reservation reservation : result.getReservations()) {
+				for (Instance instance : reservation.getInstances()) {
+					if (instance.getState().getName().equals("running")) {
+						targetInstance = instance;
+						done = true;
+						break;
+					}
+				}
+				if (done)
+					break;
+			}
+		}
+		if (targetInstance == null) {
+			System.out.println("There is no running EC2 instance");
+		}
+
+		try {
+			// Initialize SSM client
+			AWSSimpleSystemsManagement ssmClient = AWSSimpleSystemsManagementClientBuilder
+					.standard()
+					.withRegion(REGION)
+					.build();
+
+			// Create a command request
+			SendCommandRequest sendCommandRequest = new SendCommandRequest()
+					.withInstanceIds(targetInstance.getInstanceId())
+					.withDocumentName("AWS-RunShellScript")        // 실행할 문서 이름 [AWS-RunShellScript : 리눅스 쉘 문서]
+					.addParametersEntry("commands",
+							java.util.Collections.singletonList("condor_status")); // Replace with your actual command
+
+			// Send the command
+			SendCommandResult sendCommandResult = ssmClient.sendCommand(sendCommandRequest);
+
+			// Command ID for tracking
+			String commandId = sendCommandResult.getCommand().getCommandId();
+			System.out.printf("Command ID: %s, Instance ID: %s\n", commandId, targetInstance.getInstanceId());
+
+
+			// Wait and get the result
+			GetCommandInvocationRequest getCommandInvocationRequest = new GetCommandInvocationRequest()
+					.withCommandId(commandId)
+					.withInstanceId(targetInstance.getInstanceId());
+
+			Thread.sleep(2000);
+
+			boolean isDone = false;
+			while (!isDone) {
+				GetCommandInvocationResult commandResult = ssmClient.getCommandInvocation(getCommandInvocationRequest);
+				String status = commandResult.getStatus();
+
+				System.out.println("status : " + status);
+
+				switch (status) {
+					case "Success":
+						System.out.println("Command executed successfully!");
+						System.out.println("Command output: ");
+						System.out.println(commandResult.getStandardOutputContent());
+						isDone = true;
+						break;
+					case "Failed":
+						System.out.println("Command execution failed!");
+						System.out.println("Error: ");
+						System.out.println(commandResult.getStandardErrorContent());
+						isDone = true;
+						break;
+					case "InProgress":
+					case "Pending":
+						System.out.println("Command is still running. Waiting...");
+						Thread.sleep(2000); // 2초 대기
+						break;
+					default:
+						System.out.printf("Unknown command status: %s\n", status);
+						isDone = true;
+				}
+			}
+		} catch (Exception e) {
+			System.out.println("Failed to send or retrieve command result: " + e.getMessage());
+		}
 	}
 }
 	
