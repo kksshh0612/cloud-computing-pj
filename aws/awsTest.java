@@ -7,12 +7,24 @@ package aws;
 * using AWS Java SDK Library
 * 
 */
+import com.amazonaws.services.cloudwatch.AmazonCloudWatch;
+import com.amazonaws.services.cloudwatch.AmazonCloudWatchClientBuilder;
+import com.amazonaws.services.cloudwatch.model.Dimension;
+import com.amazonaws.services.cloudwatch.model.GetMetricDataRequest;
+import com.amazonaws.services.cloudwatch.model.GetMetricDataResult;
+import com.amazonaws.services.cloudwatch.model.ListMetricsRequest;
+import com.amazonaws.services.cloudwatch.model.ListMetricsResult;
+import com.amazonaws.services.cloudwatch.model.Metric;
+import com.amazonaws.services.cloudwatch.model.MetricDataQuery;
+import com.amazonaws.services.cloudwatch.model.MetricDataResult;
+import com.amazonaws.services.cloudwatch.model.MetricStat;
 import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagement;
 import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagementClientBuilder;
 import com.amazonaws.services.simplesystemsmanagement.model.GetCommandInvocationRequest;
 import com.amazonaws.services.simplesystemsmanagement.model.GetCommandInvocationResult;
 import com.amazonaws.services.simplesystemsmanagement.model.SendCommandRequest;
 import com.amazonaws.services.simplesystemsmanagement.model.SendCommandResult;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -87,7 +99,7 @@ public class awsTest {
 			System.out.println("  3. start instance               4. available regions      ");
 			System.out.println("  5. stop instance                6. create instance        ");
 			System.out.println("  7. reboot instance              8. list images            ");
-			System.out.println("  9. check condor status                                    ");
+			System.out.println("  9. check condor status          10. check instance usage  ");
 			System.out.println("                                 99. quit                   ");
 			System.out.println("------------------------------------------------------------");
 			
@@ -161,11 +173,16 @@ public class awsTest {
 				condorStatus();
 				break;
 
+			case 10:
+				instanceUsage();
+				break;
+
 			case 99: 
 				System.out.println("bye!");
 				menu.close();
 				id_string.close();
 				return;
+
 			default: System.out.println("concentration!");
 			}
 
@@ -376,8 +393,9 @@ public class awsTest {
 						break;
 					}
 				}
-				if (done)
+				if (done){
 					break;
+				}
 			}
 		}
 		if (targetInstance == null) {
@@ -436,6 +454,7 @@ public class awsTest {
 					case "InProgress":
 					case "Pending":
 						System.out.println("Command is still running. Waiting...");
+						Thread.sleep(2000);
 						break;
 					default:
 						System.out.printf("Unknown command status: %s\n", status);
@@ -446,5 +465,117 @@ public class awsTest {
 			System.out.println("Failed to send or retrieve command result: " + e.getMessage());
 		}
 	}
+
+	public static void instanceUsage(){
+		System.out.println("Checking All Intances Usages....");
+
+		final AmazonCloudWatch cloudWatch = AmazonCloudWatchClientBuilder.defaultClient();
+
+		// EC2 인스턴스 목록 조회
+		DescribeInstancesRequest describeInstancesRequest = new DescribeInstancesRequest();
+		DescribeInstancesResult describeInstancesResult = ec2.describeInstances(describeInstancesRequest);
+
+		for(Reservation reservation : describeInstancesResult.getReservations()){
+			for(Instance instance : reservation.getInstances()){
+				System.out.printf("[Instance ID]: %s [State] : %s ", instance.getInstanceId(), instance.getState().getName());
+				if(instance.getState().getName().equals("running")){
+
+					// CPU 사용량 메트릭 조회
+					GetMetricDataResult cpuUsageResult = getInstanceCpuUsage(cloudWatch, instance.getInstanceId());
+
+					// 메모리 사용량 메트릭 조회
+//					GetMetricDataResult memoryUsageResult = getInstanceMemoryUsage(cloudWatch,
+//							instance.getInstanceId());
+//					System.out.printf("[CPU Usage] : %f\n", cpuUsageResult.getMetricDataResults().getFirst().getValues().get(0));
+
+					System.out.printf("[CPU Usage] : %.2f %%\n",
+							cpuUsageResult.getMetricDataResults().getFirst().getValues().get(0)
+					);
+				}
+				else{
+					// 사용 중이지 않은 인스턴스는 상태 출력
+					System.out.printf("[CPU Usage] : 0.00 %%\n");
+				}
+			}
+		}
+	}
+
+	// CPU 사용량 메트릭 조회
+	private static GetMetricDataResult getInstanceCpuUsage(AmazonCloudWatch cloudWatch, String instanceId) {
+
+		// 현재 시간과 1시간 전 시간을 설정
+		Date endTime = new Date();
+		Date startTime = new Date(endTime.getTime() - 3600 * 1000); // 1시간 전
+
+		// CloudWatch에서 CPU 사용량 메트릭을 가져옵니다.
+		GetMetricDataRequest request = new GetMetricDataRequest()
+				.withMetricDataQueries(new MetricDataQuery()
+						.withId("cpuUsage")
+						.withMetricStat(new MetricStat()
+								.withMetric(new Metric()
+										.withNamespace("AWS/EC2")
+										.withMetricName("CPUUtilization")
+										.withDimensions(new Dimension()
+												.withName("InstanceId")
+												.withValue(instanceId)))
+								.withPeriod(60)
+								.withStat("Average"))
+						.withReturnData(true))
+				.withStartTime(startTime)
+				.withEndTime(endTime);
+
+//		GetMetricDataResult response = cloudWatch.getMetricData(request);
+
+		return cloudWatch.getMetricData(request);
+
+		// CPU 사용량 출력
+//		for (MetricDataResult result : response.getMetricDataResults()) {
+//			if (result.getValues() != null && !result.getValues().isEmpty()) {
+//				System.out.printf("CPU Usage for Instance %s: %.2f%%\n", instanceId, result.getValues().get(0));
+//			} else {
+//				System.out.printf("No CPU data available for Instance %s\n", instanceId);
+//			}
+//		}
+	}
+
+	// 메모리 사용량 메트릭 조회 (CloudWatch 에이전트가 설치된 경우에만)
+	private static GetMetricDataResult getInstanceMemoryUsage(AmazonCloudWatch cloudWatch, String instanceId) {
+		// EC2 인스턴스에서 메모리 사용량을 CloudWatch에서 수집하려면 CloudWatch 에이전트를 설치해야 합니다.
+		// 여기서는 메모리 사용량을 가져오는 코드의 예시를 보여줍니다.
+
+		// 현재 시간과 1시간 전 시간을 설정
+		Date endTime = new Date();
+		Date startTime = new Date(endTime.getTime() - 3600 * 1000); // 1시간 전
+
+		GetMetricDataRequest request = new GetMetricDataRequest()
+				.withMetricDataQueries(new MetricDataQuery()
+						.withId("memoryUsage")
+						.withMetricStat(new MetricStat()
+								.withMetric(new Metric()
+										.withNamespace("CWAgent")
+										.withMetricName("MemoryUtilization")
+										.withDimensions(new Dimension()
+												.withName("InstanceId")
+												.withValue(instanceId)))
+								.withPeriod(60)
+								.withStat("Average"))
+						.withReturnData(true))
+				.withStartTime(startTime)
+				.withEndTime(endTime);
+
+//		GetMetricDataResult response = cloudWatch.getMetricData(request);
+
+		return cloudWatch.getMetricData(request);
+
+		// 메모리 사용량 출력
+//		for (MetricDataResult result : response.getMetricDataResults()) {
+//			if (result.getValues() != null && !result.getValues().isEmpty()) {
+//				System.out.printf("Memory Usage for Instance %s: %.2f%%\n", instanceId, result.getValues().get(0));
+//			} else {
+//				System.out.printf("No Memory data available for Instance %s\n", instanceId);
+//			}
+//		}
+	}
+
 }
 	
