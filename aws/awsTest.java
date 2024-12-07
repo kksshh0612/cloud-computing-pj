@@ -436,7 +436,6 @@ public class awsTest {
 					case "InProgress":
 					case "Pending":
 						System.out.println("Command is still running. Waiting...");
-						Thread.sleep(2000); // 2초 대기
 						break;
 					default:
 						System.out.printf("Unknown command status: %s\n", status);
