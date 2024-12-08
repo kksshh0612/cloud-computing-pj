@@ -502,9 +502,9 @@ public class awsTest {
 	// CPU 사용량 메트릭 조회
 	private static GetMetricDataResult getInstanceCpuUsage(AmazonCloudWatch cloudWatch, String instanceId) {
 
-		// 현재 시간과 1시간 전 시간을 설정
+		// 현재 시간과 5분 전 시간을 설정
 		Date endTime = new Date();
-		Date startTime = new Date(endTime.getTime() - 3600 * 1000); // 1시간 전
+		Date startTime = new Date(endTime.getTime() - 5 * 60 * 1000); // 5분 전
 
 		// CloudWatch에서 CPU 사용량 메트릭을 가져옵니다.
 		GetMetricDataRequest request = new GetMetricDataRequest()
