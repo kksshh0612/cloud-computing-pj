@@ -477,14 +477,18 @@ public class awsTest {
 
 		for(Reservation reservation : describeInstancesResult.getReservations()){
 			for(Instance instance : reservation.getInstances()){
-				System.out.printf("[Instance ID]: %s [State] : %s ", instance.getInstanceId(), instance.getState().getName());
+				System.out.printf("[Instance ID]: %s [State]: %s ", instance.getInstanceId(), instance.getState().getName());
 				if(instance.getState().getName().equals("running")){
 
 					// CPU 사용량 메트릭 조회
 					GetMetricDataResult cpuUsageResult = getInstanceCpuUsage(cloudWatch, instance.getInstanceId());
+					GetMetricDataResult networkInResult = getInstanceNetworkIn(cloudWatch, instance.getInstanceId());
+					GetMetricDataResult networkOutResult = getInstanceNetworkOut(cloudWatch, instance.getInstanceId());
 
-					System.out.printf("[CPU Usage] : %.2f %%\n",
-							cpuUsageResult.getMetricDataResults().getFirst().getValues().get(0)
+					System.out.printf("[CPU Usage]: %.2f %% [Network In]: %.2f bytes [Network Out]: %.2f bytes\n",
+							cpuUsageResult.getMetricDataResults().getFirst().getValues().get(0),
+							networkInResult.getMetricDataResults().getFirst().getValues().get(0),
+							networkOutResult.getMetricDataResults().getFirst().getValues().get(0)
 					);
 				}
 				else{
@@ -522,6 +526,59 @@ public class awsTest {
 		return cloudWatch.getMetricData(request);
 	}
 
+	// NetworkIn 메트릭 조회
+	private static GetMetricDataResult getInstanceNetworkIn(AmazonCloudWatch cloudWatch, String instanceId) {
+
+		// 현재 시간과 1시간 전 시간을 설정
+		Date endTime = new Date();
+		Date startTime = new Date(endTime.getTime() - 3600 * 1000); // 1시간 전
+
+		// CloudWatch에서 NetworkIn 메트릭을 가져옵니다.
+		GetMetricDataRequest request = new GetMetricDataRequest()
+				.withMetricDataQueries(new MetricDataQuery()
+						.withId("networkIn")
+						.withMetricStat(new MetricStat()
+								.withMetric(new Metric()
+										.withNamespace("AWS/EC2")
+										.withMetricName("NetworkIn")
+										.withDimensions(new Dimension()
+												.withName("InstanceId")
+												.withValue(instanceId)))
+								.withPeriod(60)
+								.withStat("Average"))
+						.withReturnData(true))
+				.withStartTime(startTime)
+				.withEndTime(endTime);
+
+		return cloudWatch.getMetricData(request);
+	}
+
+	// NetworkOut 메트릭 조회
+	private static GetMetricDataResult getInstanceNetworkOut(AmazonCloudWatch cloudWatch, String instanceId) {
+
+		// 현재 시간과 1시간 전 시간을 설정
+		Date endTime = new Date();
+		Date startTime = new Date(endTime.getTime() - 3600 * 1000); // 1시간 전
+
+		// CloudWatch에서 NetworkOut 메트릭을 가져옵니다.
+		GetMetricDataRequest request = new GetMetricDataRequest()
+				.withMetricDataQueries(new MetricDataQuery()
+						.withId("networkOut")
+						.withMetricStat(new MetricStat()
+								.withMetric(new Metric()
+										.withNamespace("AWS/EC2")
+										.withMetricName("NetworkOut")
+										.withDimensions(new Dimension()
+												.withName("InstanceId")
+												.withValue(instanceId)))
+								.withPeriod(60)
+								.withStat("Average"))
+						.withReturnData(true))
+				.withStartTime(startTime)
+				.withEndTime(endTime);
+
+		return cloudWatch.getMetricData(request);
+	}
 
 
 }
