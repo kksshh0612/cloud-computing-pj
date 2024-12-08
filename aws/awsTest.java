@@ -483,11 +483,6 @@ public class awsTest {
 					// CPU 사용량 메트릭 조회
 					GetMetricDataResult cpuUsageResult = getInstanceCpuUsage(cloudWatch, instance.getInstanceId());
 
-					// 메모리 사용량 메트릭 조회
-//					GetMetricDataResult memoryUsageResult = getInstanceMemoryUsage(cloudWatch,
-//							instance.getInstanceId());
-//					System.out.printf("[CPU Usage] : %f\n", cpuUsageResult.getMetricDataResults().getFirst().getValues().get(0));
-
 					System.out.printf("[CPU Usage] : %.2f %%\n",
 							cpuUsageResult.getMetricDataResults().getFirst().getValues().get(0)
 					);
@@ -524,58 +519,10 @@ public class awsTest {
 				.withStartTime(startTime)
 				.withEndTime(endTime);
 
-//		GetMetricDataResult response = cloudWatch.getMetricData(request);
-
 		return cloudWatch.getMetricData(request);
-
-		// CPU 사용량 출력
-//		for (MetricDataResult result : response.getMetricDataResults()) {
-//			if (result.getValues() != null && !result.getValues().isEmpty()) {
-//				System.out.printf("CPU Usage for Instance %s: %.2f%%\n", instanceId, result.getValues().get(0));
-//			} else {
-//				System.out.printf("No CPU data available for Instance %s\n", instanceId);
-//			}
-//		}
 	}
 
-	// 메모리 사용량 메트릭 조회 (CloudWatch 에이전트가 설치된 경우에만)
-	private static GetMetricDataResult getInstanceMemoryUsage(AmazonCloudWatch cloudWatch, String instanceId) {
-		// EC2 인스턴스에서 메모리 사용량을 CloudWatch에서 수집하려면 CloudWatch 에이전트를 설치해야 합니다.
-		// 여기서는 메모리 사용량을 가져오는 코드의 예시를 보여줍니다.
 
-		// 현재 시간과 1시간 전 시간을 설정
-		Date endTime = new Date();
-		Date startTime = new Date(endTime.getTime() - 3600 * 1000); // 1시간 전
-
-		GetMetricDataRequest request = new GetMetricDataRequest()
-				.withMetricDataQueries(new MetricDataQuery()
-						.withId("memoryUsage")
-						.withMetricStat(new MetricStat()
-								.withMetric(new Metric()
-										.withNamespace("CWAgent")
-										.withMetricName("MemoryUtilization")
-										.withDimensions(new Dimension()
-												.withName("InstanceId")
-												.withValue(instanceId)))
-								.withPeriod(60)
-								.withStat("Average"))
-						.withReturnData(true))
-				.withStartTime(startTime)
-				.withEndTime(endTime);
-
-//		GetMetricDataResult response = cloudWatch.getMetricData(request);
-
-		return cloudWatch.getMetricData(request);
-
-		// 메모리 사용량 출력
-//		for (MetricDataResult result : response.getMetricDataResults()) {
-//			if (result.getValues() != null && !result.getValues().isEmpty()) {
-//				System.out.printf("Memory Usage for Instance %s: %.2f%%\n", instanceId, result.getValues().get(0));
-//			} else {
-//				System.out.printf("No Memory data available for Instance %s\n", instanceId);
-//			}
-//		}
-	}
 
 }
 	
