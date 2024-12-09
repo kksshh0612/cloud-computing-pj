@@ -487,11 +487,24 @@ public class awsTest {
 					GetMetricDataResult networkOutResult = getInstanceMatric(cloudWatch, instance.getInstanceId(),
 							"networkOut", "NetworkOut", 600 * 1000);
 
-					System.out.printf("[CPU Usage]: %.2f %% [Network In]: %f bytes [Network Out]: %f bytes\n",
-							cpuUsageResult.getMetricDataResults().getFirst().getValues().get(0),
-							networkInResult.getMetricDataResults().getFirst().getValues().get(0),
-							networkOutResult.getMetricDataResults().getFirst().getValues().get(0)
-					);
+					// 데이터가 존재하는지 검증
+					double cpuUsage = cpuUsageResult.getMetricDataResults().isEmpty() ||
+							cpuUsageResult.getMetricDataResults().get(0).getValues().isEmpty()
+							? 0.0
+							: cpuUsageResult.getMetricDataResults().get(0).getValues().get(0);
+
+					double networkIn = networkInResult.getMetricDataResults().isEmpty() ||
+							networkInResult.getMetricDataResults().get(0).getValues().isEmpty()
+							? 0.0
+							: networkInResult.getMetricDataResults().get(0).getValues().get(0);
+
+					double networkOut = networkOutResult.getMetricDataResults().isEmpty() ||
+							networkOutResult.getMetricDataResults().get(0).getValues().isEmpty()
+							? 0.0
+							: networkOutResult.getMetricDataResults().get(0).getValues().get(0);
+
+					System.out.printf("[CPU Usage]: %.2f %% [Network In]: %.2f bytes [Network Out]: %.2f bytes\n",
+							cpuUsage, networkIn, networkOut);
 				}
 				else{
 					// 사용 중이지 않은 인스턴스는 상태 출력
