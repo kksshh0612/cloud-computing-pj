@@ -403,33 +403,32 @@ public class awsTest {
 		}
 
 		try {
-			// Initialize SSM client
+			// SSM client 초기화
 			AWSSimpleSystemsManagement ssmClient = AWSSimpleSystemsManagementClientBuilder
 					.standard()
 					.withRegion(REGION)
 					.build();
 
-			// Create a command request
+			// 명령 생성
 			SendCommandRequest sendCommandRequest = new SendCommandRequest()
 					.withInstanceIds(targetInstance.getInstanceId())
 					.withDocumentName("AWS-RunShellScript")        // 실행할 문서 이름 [AWS-RunShellScript : 리눅스 쉘 문서]
 					.addParametersEntry("commands",
 							java.util.Collections.singletonList("condor_status")); // Replace with your actual command
 
-			// Send the command
+			// 명령 전송
 			SendCommandResult sendCommandResult = ssmClient.sendCommand(sendCommandRequest);
 
-			// Command ID for tracking
 			String commandId = sendCommandResult.getCommand().getCommandId();
 			System.out.printf("Command ID: %s, Instance ID: %s\n", commandId, targetInstance.getInstanceId());
 
 
-			// Wait and get the result
+			// 결과
 			GetCommandInvocationRequest getCommandInvocationRequest = new GetCommandInvocationRequest()
 					.withCommandId(commandId)
 					.withInstanceId(targetInstance.getInstanceId());
 
-			Thread.sleep(2000);
+			Thread.sleep(1000);
 
 			boolean isDone = false;
 			while (!isDone) {
@@ -454,7 +453,7 @@ public class awsTest {
 					case "InProgress":
 					case "Pending":
 						System.out.println("Command is still running. Waiting...");
-						Thread.sleep(2000);
+						Thread.sleep(1000);
 						break;
 					default:
 						System.out.printf("Unknown command status: %s\n", status);
@@ -481,9 +480,12 @@ public class awsTest {
 				if(instance.getState().getName().equals("running")){
 
 					// CPU 사용량 메트릭 조회
-					GetMetricDataResult cpuUsageResult = getInstanceCpuUsage(cloudWatch, instance.getInstanceId());
-					GetMetricDataResult networkInResult = getInstanceNetworkIn(cloudWatch, instance.getInstanceId());
-					GetMetricDataResult networkOutResult = getInstanceNetworkOut(cloudWatch, instance.getInstanceId());
+					GetMetricDataResult cpuUsageResult = getInstanceMatric(cloudWatch, instance.getInstanceId(),
+							"cpuUsage", "CPUUtilization", 3600 * 1000);
+					GetMetricDataResult networkInResult = getInstanceMatric(cloudWatch, instance.getInstanceId(),
+							"networkIn", "NetworkIn", 600 * 1000);
+					GetMetricDataResult networkOutResult = getInstanceMatric(cloudWatch, instance.getInstanceId(),
+							"networkOut", "NetworkOut", 600 * 1000);
 
 					System.out.printf("[CPU Usage]: %.2f %% [Network In]: %f bytes [Network Out]: %f bytes\n",
 							cpuUsageResult.getMetricDataResults().getFirst().getValues().get(0),
@@ -499,21 +501,19 @@ public class awsTest {
 		}
 	}
 
-	// CPU 사용량 메트릭 조회
-	private static GetMetricDataResult getInstanceCpuUsage(AmazonCloudWatch cloudWatch, String instanceId) {
-
-		// 현재 시간과 1시간 전 시간을 설정
+	private static GetMetricDataResult getInstanceMatric(AmazonCloudWatch cloudWatch, String instanceId,
+														String matricId, String matricName, long termTime){
 		Date endTime = new Date();
-		Date startTime = new Date(endTime.getTime() - 3600 * 1000); // 1시간 전
+		Date startTime = new Date(endTime.getTime() - termTime);
 
 		// CloudWatch에서 CPU 사용량 메트릭을 가져옵니다.
 		GetMetricDataRequest request = new GetMetricDataRequest()
 				.withMetricDataQueries(new MetricDataQuery()
-						.withId("cpuUsage")
+						.withId(matricId)
 						.withMetricStat(new MetricStat()
 								.withMetric(new Metric()
 										.withNamespace("AWS/EC2")
-										.withMetricName("CPUUtilization")
+										.withMetricName(matricName)
 										.withDimensions(new Dimension()
 												.withName("InstanceId")
 												.withValue(instanceId)))
@@ -525,61 +525,6 @@ public class awsTest {
 
 		return cloudWatch.getMetricData(request);
 	}
-
-	// NetworkIn 메트릭 조회
-	private static GetMetricDataResult getInstanceNetworkIn(AmazonCloudWatch cloudWatch, String instanceId) {
-
-		// 현재 시간과 1시간 전 시간을 설정
-		Date endTime = new Date();
-		Date startTime = new Date(endTime.getTime() - 3600 * 1000); // 1시간 전
-
-		// CloudWatch에서 NetworkIn 메트릭을 가져옵니다.
-		GetMetricDataRequest request = new GetMetricDataRequest()
-				.withMetricDataQueries(new MetricDataQuery()
-						.withId("networkIn")
-						.withMetricStat(new MetricStat()
-								.withMetric(new Metric()
-										.withNamespace("AWS/EC2")
-										.withMetricName("NetworkIn")
-										.withDimensions(new Dimension()
-												.withName("InstanceId")
-												.withValue(instanceId)))
-								.withPeriod(60)
-								.withStat("Average"))
-						.withReturnData(true))
-				.withStartTime(startTime)
-				.withEndTime(endTime);
-
-		return cloudWatch.getMetricData(request);
-	}
-
-	// NetworkOut 메트릭 조회
-	private static GetMetricDataResult getInstanceNetworkOut(AmazonCloudWatch cloudWatch, String instanceId) {
-
-		// 현재 시간과 1시간 전 시간을 설정
-		Date endTime = new Date();
-		Date startTime = new Date(endTime.getTime() - 3600 * 1000); // 1시간 전
-
-		// CloudWatch에서 NetworkOut 메트릭을 가져옵니다.
-		GetMetricDataRequest request = new GetMetricDataRequest()
-				.withMetricDataQueries(new MetricDataQuery()
-						.withId("networkOut")
-						.withMetricStat(new MetricStat()
-								.withMetric(new Metric()
-										.withNamespace("AWS/EC2")
-										.withMetricName("NetworkOut")
-										.withDimensions(new Dimension()
-												.withName("InstanceId")
-												.withValue(instanceId)))
-								.withPeriod(60)
-								.withStat("Average"))
-						.withReturnData(true))
-				.withStartTime(startTime)
-				.withEndTime(endTime);
-
-		return cloudWatch.getMetricData(request);
-	}
-
 
 }
 	
