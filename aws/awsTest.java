@@ -485,7 +485,7 @@ public class awsTest {
 					GetMetricDataResult networkInResult = getInstanceNetworkIn(cloudWatch, instance.getInstanceId());
 					GetMetricDataResult networkOutResult = getInstanceNetworkOut(cloudWatch, instance.getInstanceId());
 
-					System.out.printf("[CPU Usage]: %.2f %% [Network In]: %.2f bytes [Network Out]: %.2f bytes\n",
+					System.out.printf("[CPU Usage]: %.2f %% [Network In]: %f bytes [Network Out]: %f bytes\n",
 							cpuUsageResult.getMetricDataResults().getFirst().getValues().get(0),
 							networkInResult.getMetricDataResults().getFirst().getValues().get(0),
 							networkOutResult.getMetricDataResults().getFirst().getValues().get(0)
@@ -502,9 +502,9 @@ public class awsTest {
 	// CPU 사용량 메트릭 조회
 	private static GetMetricDataResult getInstanceCpuUsage(AmazonCloudWatch cloudWatch, String instanceId) {
 
-		// 현재 시간과 5분 전 시간을 설정
+		// 현재 시간과 1시간 전 시간을 설정
 		Date endTime = new Date();
-		Date startTime = new Date(endTime.getTime() - 5 * 60 * 1000); // 5분 전
+		Date startTime = new Date(endTime.getTime() - 3600 * 1000); // 1시간 전
 
 		// CloudWatch에서 CPU 사용량 메트릭을 가져옵니다.
 		GetMetricDataRequest request = new GetMetricDataRequest()
